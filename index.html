@@ -491,43 +491,23 @@
         }
 
         async function loadTasks() {
-            const savedUrl = localStorage.getItem('socialGameCsvUrl');
-            if (savedUrl) {
-                state.csvUrl = savedUrl;
-                await fetchTasks(savedUrl);
-            } else {
-                const saved = localStorage.getItem('socialGameTasks');
-                if (saved) {
-                    state.tasks = JSON.parse(saved);
-                } else {
-                    state.tasks = [...DEFAULT_TASKS];
-                }
-            }
-            renderAdminInputs();
-        }
-
-        async function fetchTasks(url) {
             try {
-                const res = await fetch(url);
-                if (!res.ok) throw new Error("Network response was not ok");
-                const text = await res.text();
+                if(API_URL.includes('YOUR_SUBDOMAIN')) throw new Error("API_URL not configured");
                 
-                const rows = text.split('\\n').map(row => {
-                    let val = row.split(',')[0] || '';
-                    val = val.replace(/^"|"$/g, '').trim();
-                    return val;
-                }).filter(val => val !== "" && val !== "題目");
-
-                if (rows.length > 0) {
-                    state.tasks = rows;
+                const res = await fetch(`${API_URL}?action=tasks`);
+                if (!res.ok) throw new Error("Network response was not ok");
+                
+                const json = await res.json();
+                if (json.data && json.data.length > 0) {
+                    state.tasks = json.data;
                 } else {
-                    throw new Error("CSV 解析為空");
+                    throw new Error("API回傳題庫為空");
                 }
             } catch (err) {
-                console.error("Fetch CSV failed:", err);
-                if (state.tasks.length === 0) state.tasks = [...DEFAULT_TASKS];
-                showAlert('題庫載入失敗', '無法從設定的網址載入 CSV，將使用預設或暫存題庫。');
+                console.warn("Fetch API tasks failed, using default tasks:", err);
+                state.tasks = [...DEFAULT_TASKS];
             }
+            renderAdminInputs();
         }
 
         // --- 4. Rendering ---
