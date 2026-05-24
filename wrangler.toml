@@ -1,0 +1,8 @@
+name = "social-game-api"
+main = "src/index.js"
+compatibility_date = "2026-05-24"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "social-game-db"
+database_id = "YOUR_DATABASE_ID_HERE"

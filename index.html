@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>社會技巧大富翁</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        /* 自定義動畫與樣式 */
+        /* 預設為手機直式版面 (4 columns, 6 rows) */
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            grid-template-rows: repeat(6, 1fr);
+            gap: 0.5rem;
+            width: 100%;
+            height: 100%;
+            margin: 0 auto;
+        }
+        
+        .center-area {
+            grid-area: 2 / 2 / 6 / 4;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* 棋盤格子排列邏輯 (Mobile: 4x6) */
+        .cell-pos-0 { grid-area: 1 / 1 / 2 / 2; }
+        .cell-pos-1 { grid-area: 1 / 2 / 2 / 3; }
+        .cell-pos-2 { grid-area: 1 / 3 / 2 / 4; }
+        .cell-pos-3 { grid-area: 1 / 4 / 2 / 5; }
+        .cell-pos-4 { grid-area: 2 / 4 / 3 / 5; }
+        .cell-pos-5 { grid-area: 3 / 4 / 4 / 5; }
+        .cell-pos-6 { grid-area: 4 / 4 / 5 / 5; }
+        .cell-pos-7 { grid-area: 5 / 4 / 6 / 5; }
+        .cell-pos-8 { grid-area: 6 / 4 / 7 / 5; }
+        .cell-pos-9 { grid-area: 6 / 3 / 7 / 4; }
+        .cell-pos-10 { grid-area: 6 / 2 / 7 / 3; }
+        .cell-pos-11 { grid-area: 6 / 1 / 7 / 2; }
+        .cell-pos-12 { grid-area: 5 / 1 / 6 / 2; }
+        .cell-pos-13 { grid-area: 4 / 1 / 5 / 2; }
+        .cell-pos-14 { grid-area: 3 / 1 / 4 / 2; }
+        .cell-pos-15 { grid-area: 2 / 1 / 3 / 2; }
+
+        /* 桌機橫式版面 (6 columns, 4 rows) */
+        @media (min-width: 768px) {
+            .grid-container {
+                grid-template-columns: repeat(6, 1fr);
+                grid-template-rows: repeat(4, 1fr);
+                width: 100%;
+                height: 100%;
+            }
+
+            .center-area {
+                grid-area: 2 / 2 / 4 / 6;
+            }
+
+            .cell-pos-0 { grid-area: 1 / 1 / 2 / 2; }
+            .cell-pos-1 { grid-area: 1 / 2 / 2 / 3; }
+            .cell-pos-2 { grid-area: 1 / 3 / 2 / 4; }
+            .cell-pos-3 { grid-area: 1 / 4 / 2 / 5; }
+            .cell-pos-4 { grid-area: 1 / 5 / 2 / 6; }
+            .cell-pos-5 { grid-area: 1 / 6 / 2 / 7; }
+            .cell-pos-6 { grid-area: 2 / 6 / 3 / 7; }
+            .cell-pos-7 { grid-area: 3 / 6 / 4 / 7; }
+            .cell-pos-8 { grid-area: 4 / 6 / 5 / 7; }
+            .cell-pos-9 { grid-area: 4 / 5 / 5 / 6; }
+            .cell-pos-10 { grid-area: 4 / 4 / 5 / 5; }
+            .cell-pos-11 { grid-area: 4 / 3 / 5 / 4; }
+            .cell-pos-12 { grid-area: 4 / 2 / 5 / 3; }
+            .cell-pos-13 { grid-area: 4 / 1 / 5 / 2; }
+            .cell-pos-14 { grid-area: 3 / 1 / 4 / 2; }
+            .cell-pos-15 { grid-area: 2 / 1 / 3 / 2; }
+        }
+
+        .player-token {
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); /* 更有彈性的跳躍感 */
+            z-index: 50;
+        }
+
+        .modal-overlay {
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+    </style>
+</head>
+<body class="bg-blue-50 text-gray-800 font-sans min-h-screen flex flex-col" onclick="SoundFX.init()">
+
+    <!-- Navbar -->
+    <nav class="bg-indigo-600 text-white p-4 shadow-md flex justify-between items-center z-10 relative">
+        <h1 class="text-xl font-bold"><i class="fas fa-dice mr-2"></i>社會技巧大富翁</h1>
+        <div class="space-x-2">
+            <button onclick="showLeaderboard(); SoundFX.play('click')" class="bg-indigo-500 hover:bg-indigo-700 px-4 py-2 rounded transition text-sm">
+                <i class="fas fa-trophy mr-1"></i> 排行榜
+            </button>
+            <button onclick="toggleAdminPanel(); SoundFX.play('click')" class="bg-indigo-500 hover:bg-indigo-700 px-4 py-2 rounded transition text-sm">
+                <i class="fas fa-cog mr-1"></i> 老師設定
+            </button>
+        </div>
+    </nav>
+
+    <!-- Main Game Area -->
+    <main class="flex-grow p-4 overflow-hidden relative flex flex-col md:flex-row gap-4">
+        <!-- Sidebar -->
+        <aside id="sidebar" class="w-full md:w-64 bg-white rounded-xl shadow-lg border-2 border-indigo-100 p-4 flex flex-col gap-3 overflow-y-auto max-h-[200px] md:max-h-none hidden">
+            <h2 class="text-xl font-bold text-indigo-900 mb-2 border-b-2 border-indigo-100 pb-2"><i class="fas fa-users mr-2"></i>玩家狀態</h2>
+            <div id="players-list" class="flex flex-col gap-2">
+                <!-- Players will be injected here -->
+            </div>
+        </aside>
+
+        <!-- Board -->
+        <div id="game-board-container" class="flex-grow flex flex-col hidden min-h-[500px]">
+            <div id="game-board" class="grid-container flex-grow w-full bg-white p-2 sm:p-4 rounded-xl shadow-2xl border-4 border-indigo-200">
+                <!-- Grids will be generated by JS -->
+                
+                <!-- Center Controls -->
+                <div class="center-area bg-blue-50 rounded-lg p-4 text-center shadow-inner border border-blue-100 flex flex-col">
+                    <div class="mb-4">
+                        <p class="text-gray-500 text-sm">現在輪到</p>
+                        <div id="current-player-name" class="text-3xl font-bold text-indigo-600 truncate">準備中...</div>
+                    </div>
+                    
+                    <div id="dice-container" class="mb-6 relative flex-grow flex items-center justify-center">
+                        <button id="roll-btn" onclick="rollDice(); SoundFX.play('click')" class="bg-red-500 hover:bg-red-600 text-white font-bold py-6 px-10 rounded-full shadow-lg transform active:scale-95 transition text-2xl animate-bounce">
+                            擲骰子
+                        </button>
+                        <div id="dice-display" class="hidden text-8xl text-indigo-800">
+                            <i class="fas fa-dice-one"></i>
+                        </div>
+                    </div>
+
+                    <div class="text-xs text-gray-400 mt-auto">
+                        <p>踩別人地需付過路費</p>
+                        <p>破產即淘汰，活到最後獲勝</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modals -->
+    
+    <!-- Setup Modal (Multiplayer) -->
+    <div id="setup-modal" class="fixed inset-0 bg-indigo-900 bg-opacity-95 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8">
+            <div class="text-center mb-6">
+                <h2 class="text-3xl font-black text-indigo-900 mb-2"><i class="fas fa-users mr-2"></i>遊戲設定</h2>
+                <p class="text-gray-500">請設定遊玩人數與暱稱</p>
+            </div>
+            
+            <div class="mb-6">
+                <label class="block text-sm font-bold text-gray-700 mb-2">遊玩人數 (2-4人)</label>
+                <select id="player-count" onchange="renderPlayerInputs()" class="w-full border-2 border-indigo-200 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:outline-none text-lg">
+                    <option value="2">2 人</option>
+                    <option value="3">3 人</option>
+                    <option value="4">4 人</option>
+                </select>
+            </div>
+            
+            <div id="player-inputs" class="space-y-3 mb-8">
+                <!-- Dynamically generated -->
+            </div>
+            
+            <button onclick="startGame()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-4 rounded-xl font-bold text-xl shadow-lg transition transform active:scale-95">
+                開始遊戲！
+            </button>
+        </div>
+    </div>
+
+    <!-- Task Modal (Practice) -->
+    <div id="task-modal" class="fixed inset-0 modal-overlay hidden flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 transform transition-all scale-100">
+            <div class="text-center mb-6">
+                <div class="w-20 h-20 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4 text-yellow-600 text-4xl">
+                    <i class="fas fa-lightbulb"></i>
+                </div>
+                <h3 class="text-2xl font-bold text-gray-800 mb-2">社會技巧練習</h3>
+                <div class="bg-gray-50 p-6 rounded-lg border-l-8 border-yellow-400 text-left my-4">
+                    <p id="task-content" class="text-2xl font-bold text-gray-800 leading-relaxed">題目載入中...</p>
+                </div>
+                <p class="text-lg text-gray-500 mt-2" id="house-price-container">費用: <span class="font-bold text-green-600">$<span id="house-price">0</span></span></p>
+            </div>
+            <div class="grid grid-cols-1 gap-4" id="task-actions-container">
+                <button onclick="taskAction('pass'); SoundFX.play('success')" class="bg-green-500 hover:bg-green-600 text-white py-4 text-xl rounded-xl font-bold shadow transition flex items-center justify-center" id="btn-buy-upgrade">
+                    <i class="fas fa-check-circle mr-2"></i> 完成任務 (購買/升級)
+                </button>
+                <div class="grid grid-cols-2 gap-4">
+                    <button onclick="taskAction('no-buy'); SoundFX.play('click')" class="bg-blue-500 hover:bg-blue-600 text-white py-3 rounded-lg font-bold shadow transition" id="btn-no-buy">
+                        <i class="fas fa-times mr-1"></i> 不買房
+                    </button>
+                    <button onclick="taskAction('fail'); SoundFX.play('fail')" class="bg-gray-400 hover:bg-gray-500 text-white py-3 rounded-lg font-bold shadow transition">
+                        <i class="fas fa-redo mr-1"></i> 再加油
+                    </button>
+                </div>
+            </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Event Modal (Chance/Destiny) -->
+    <div id="event-modal" class="fixed inset-0 modal-overlay hidden flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 text-center">
+            <div id="event-icon-bg" class="w-20 h-20 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4 text-purple-600 text-4xl">
+                <i id="event-icon" class="fas fa-question"></i>
+            </div>
+            <h3 id="event-title" class="text-3xl font-bold text-gray-800 mb-2">機會/命運</h3>
+            <p id="event-desc" class="text-2xl text-gray-700 font-bold mb-8">內容...</p>
+            <button onclick="closeEventModal(); SoundFX.play('click')" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 text-xl rounded-lg font-bold shadow transition">
+                繼續
+            </button>
+        </div>
+    </div>
+
+    <!-- Alert Modal (Simple Message) -->
+    <div id="alert-modal" class="fixed inset-0 modal-overlay hidden flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl shadow-xl max-w-sm w-full p-6 text-center">
+            <h3 id="alert-title" class="text-2xl font-bold mb-2">提示</h3>
+            <p id="alert-msg" class="text-lg text-gray-600 mb-6">訊息</p>
+            <button onclick="document.getElementById('alert-modal').classList.add('hidden'); SoundFX.play('click')" class="bg-gray-800 text-white px-8 py-3 text-lg rounded hover:bg-gray-700">確定</button>
+        </div>
+    </div>
+
+    <!-- Game Over Modal -->
+    <div id="game-over-modal" class="fixed inset-0 bg-black bg-opacity-90 hidden flex flex-col items-center justify-center z-50 p-4">
+        <div class="text-center text-white mb-8">
+            <div id="game-over-icon" class="text-8xl mb-6 text-yellow-400"><i class="fas fa-trophy"></i></div>
+            <h2 id="game-over-title" class="text-5xl font-bold mb-4">恭喜獲勝！</h2>
+            <p id="game-over-desc" class="text-2xl mb-4">你完成了所有建設！</p>
+            <div id="score-display" class="text-xl text-yellow-300 font-bold mb-8"></div>
+        </div>
+        
+        <div id="score-submit-area" class="bg-white rounded-xl p-6 max-w-sm w-full text-center hidden">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">登錄全球排行榜</h3>
+            <input type="text" id="player-name" placeholder="輸入你的暱稱" class="w-full border rounded p-3 mb-4 text-gray-800" maxlength="15">
+            <button onclick="submitScore()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded">送出成績</button>
+            <p id="submit-status" class="text-sm text-gray-500 mt-2 hidden"></p>
+        </div>
+        
+        <div class="mt-8 space-x-4">
+            <button onclick="location.reload()" class="bg-white text-indigo-900 px-8 py-3 rounded-full font-bold text-lg hover:bg-gray-100 transition">重新開始</button>
+        </div>
+    </div>
+
+    <!-- Leaderboard Modal -->
+    <div id="leaderboard-modal" class="fixed inset-0 modal-overlay hidden flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-2xl font-bold text-indigo-900"><i class="fas fa-crown text-yellow-500 mr-2"></i>全球排行榜</h3>
+                <button onclick="document.getElementById('leaderboard-modal').classList.add('hidden')" class="text-gray-500 hover:text-red-500 text-xl"><i class="fas fa-times"></i></button>
+            </div>
+            <div id="leaderboard-list" class="space-y-2 max-h-60 overflow-y-auto">
+                <p class="text-center text-gray-500 my-4">載入中...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Panel -->
+    <div id="admin-panel" class="fixed inset-y-0 right-0 w-full sm:w-96 bg-white shadow-2xl transform translate-x-full transition-transform duration-300 z-50 overflow-y-auto">
+        <div class="p-6">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-indigo-900">題目設定</h2>
+                <button onclick="toggleAdminPanel(); SoundFX.play('click')" class="text-gray-500 hover:text-red-500 text-xl"><i class="fas fa-times"></i></button>
+            </div>
+            
+            <p class="text-sm text-gray-500 mb-4 bg-yellow-50 p-2 rounded">
+                <i class="fas fa-info-circle"></i> 請貼上 Google Sheets 發布為 CSV 的網址，遊戲啟動時會自動載入遠端題庫。
+            </p>
+
+            <form id="task-form" onsubmit="saveTasks(event)">
+                <div id="tasks-container" class="space-y-3">
+                    <div>
+                        <label class="block text-sm text-gray-700 font-bold mb-2">Google Sheets CSV 網址</label>
+                        <input type="url" id="csv-url-input" class="w-full border border-gray-300 rounded p-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="https://docs.google.com/spreadsheets/d/e/.../pub?output=csv">
+                    </div>
+                </div>
+                <div class="mt-6 pt-4 border-t border-gray-200">
+                    <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded font-bold shadow flex items-center justify-center">
+                        <i class="fas fa-sync-alt mr-2"></i> 儲存並同步題庫
+                    </button>
+                    <button type="button" onclick="resetDefaultTasks(); SoundFX.play('click')" class="w-full mt-3 bg-gray-200 hover:bg-gray-300 text-gray-700 py-2 rounded font-medium text-sm">
+                        清除設定並恢復預設值
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // --- 0. Audio System (Web Audio API) ---
+        const SoundFX = {
+            ctx: null,
+            init: function() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                } else if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            },
+            play: function(type) {
+                if (!this.ctx) this.init();
+                const ctx = this.ctx;
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+
+                const now = ctx.currentTime;
+
+                if (type === 'click') {
+                    // Short high ping
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(800, now);
+                    osc.frequency.exponentialRampToValueAtTime(300, now + 0.1);
+                    gain.gain.setValueAtTime(0.1, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                    osc.start(now);
+                    osc.stop(now + 0.1);
+                } else if (type === 'step') {
+                    // "Jump" sound
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(150, now);
+                    osc.frequency.linearRampToValueAtTime(300, now + 0.1);
+                    gain.gain.setValueAtTime(0.1, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.1);
+                    osc.start(now);
+                    osc.stop(now + 0.1);
+                } else if (type === 'dice') {
+                    // Rapid random blips simulation
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(200 + Math.random()*500, now);
+                    gain.gain.setValueAtTime(0.05, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
+                    osc.start(now);
+                    osc.stop(now + 0.05);
+                } else if (type === 'success') {
+                    // Success chord
+                    this.playTone(523.25, 0, 0.2); // C5
+                    this.playTone(659.25, 0.1, 0.2); // E5
+                    this.playTone(783.99, 0.2, 0.4); // G5
+                } else if (type === 'fail') {
+                    // Fail sound
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(200, now);
+                    osc.frequency.linearRampToValueAtTime(100, now + 0.3);
+                    gain.gain.setValueAtTime(0.1, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.3);
+                    osc.start(now);
+                    osc.stop(now + 0.3);
+                }
+            },
+            playTone: function(freq, delay, duration) {
+                const ctx = this.ctx;
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                
+                const now = ctx.currentTime + delay;
+                osc.type = 'sine';
+                osc.frequency.value = freq;
+                gain.gain.setValueAtTime(0.1, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + duration);
+                
+                osc.start(now);
+                osc.stop(now + duration);
+            }
+        };
+
+        // --- 1. Game Config & Data ---
+        const GRID_COUNT = 16;
+        const DEFAULT_TASKS = [
+            "看著對方的眼睛說「謝謝」",
+            "向旁邊的人打招呼並微笑",
+            "分享這週末發生的一件趣事",
+            "稱讚左手邊玩家的一個優點",
+            "詢問一個關於對方興趣的問題",
+            "用有禮貌的語氣拒絕一個請求",
+            "當別人說話時，點頭表示專心聆聽",
+            "分享一個你最近學會的新技能",
+            "如果玩遊戲輸了，你會說什麼？",
+            "如果想加入別人遊戲，你會怎麼問？"
+        ];
+
+        let state = {
+            players: [],
+            currentPlayerIndex: 0,
+            houses: Array(GRID_COUNT).fill(null).map(() => ({ count: 0, ownerId: null })), // Max 4 houses
+            gridData: [], // { type, price, basePrice, name }
+            isMoving: false,
+            tasks: [],
+            csvUrl: ''
+        };
+
+        const PLAYER_COLORS = [
+            { bg: 'bg-red-500', text: 'text-red-500', border: 'border-red-500' },
+            { bg: 'bg-blue-500', text: 'text-blue-500', border: 'border-blue-500' },
+            { bg: 'bg-green-500', text: 'text-green-500', border: 'border-green-500' },
+            { bg: 'bg-yellow-500', text: 'text-yellow-500', border: 'border-yellow-500' }
+        ];
+
+        const API_URL = "https://social-game-api.YOUR_SUBDOMAIN.workers.dev"; 
+
+        // --- 3. Setup & Initialization ---
+        
+        function renderPlayerInputs() {
+            const count = parseInt(document.getElementById('player-count').value);
+            const container = document.getElementById('player-inputs');
+            container.innerHTML = '';
+            
+            for(let i=0; i<count; i++) {
+                const color = PLAYER_COLORS[i].text;
+                container.innerHTML += `
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-full ${PLAYER_COLORS[i].bg} text-white flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-user"></i>
+                        </div>
+                        <input type="text" id="player-name-${i}" placeholder="玩家 ${i+1} 暱稱" class="flex-grow border-2 border-gray-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none" value="玩家 ${i+1}" maxlength="10">
+                    </div>
+                `;
+            }
+        }
+
+        async function startGame() {
+            const count = parseInt(document.getElementById('player-count').value);
+            state.players = [];
+            for(let i=0; i<count; i++) {
+                const name = document.getElementById(`player-name-${i}`).value.trim() || `玩家 ${i+1}`;
+                state.players.push({
+                    id: i,
+                    name: name,
+                    money: 5000,
+                    position: 0,
+                    diceCount: 0,
+                    colorObj: PLAYER_COLORS[i],
+                    isBankrupt: false
+                });
+            }
+            
+            document.getElementById('setup-modal').classList.add('hidden');
+            document.getElementById('sidebar').classList.remove('hidden');
+            document.getElementById('game-board-container').classList.remove('hidden');
+            
+            SoundFX.play('success');
+            
+            generateGridData();
+            await loadTasks();
+            renderGrid();
+            updateUI();
+        }
+
+        function generateGridData() {
+            // Define fixed types based on oval layout indices
+            for (let i = 0; i < GRID_COUNT; i++) {
+                let type = 'practice';
+                let name = '練習';
+                let price = 0;
+                let icon = 'fa-user-friends';
+                let color = 'bg-yellow-50 border-yellow-200';
+
+                if (i === 0) {
+                    type = 'start';
+                    name = '起點';
+                    icon = 'fa-flag-checkered';
+                    color = 'bg-red-50 border-red-200';
+                } else if (i === 4 || i === 12) {
+                    type = 'chance';
+                    name = '機會';
+                    icon = 'fa-question';
+                    color = 'bg-purple-50 border-purple-200';
+                } else if (i === 8 || i === 14) {
+                    type = 'destiny';
+                    name = '命運';
+                    icon = 'fa-star';
+                    color = 'bg-pink-50 border-pink-200';
+                } else {
+                    const rand = Math.random();
+                    if (rand < 0.6) price = Math.floor(Math.random() * 300) + 200;
+                    else price = Math.floor(Math.random() * 500) + 500;
+                    price = Math.round(price / 50) * 50;
+                }
+
+                state.gridData.push({ type, name, price, basePrice: price, icon, color });
+            }
+        }
+
+        async function loadTasks() {
+            const savedUrl = localStorage.getItem('socialGameCsvUrl');
+            if (savedUrl) {
+                state.csvUrl = savedUrl;
+                await fetchTasks(savedUrl);
+            } else {
+                const saved = localStorage.getItem('socialGameTasks');
+                if (saved) {
+                    state.tasks = JSON.parse(saved);
+                } else {
+                    state.tasks = [...DEFAULT_TASKS];
+                }
+            }
+            renderAdminInputs();
+        }
+
+        async function fetchTasks(url) {
+            try {
+                const res = await fetch(url);
+                if (!res.ok) throw new Error("Network response was not ok");
+                const text = await res.text();
+                
+                const rows = text.split('\\n').map(row => {
+                    let val = row.split(',')[0] || '';
+                    val = val.replace(/^"|"$/g, '').trim();
+                    return val;
+                }).filter(val => val !== "" && val !== "題目");
+
+                if (rows.length > 0) {
+                    state.tasks = rows;
+                } else {
+                    throw new Error("CSV 解析為空");
+                }
+            } catch (err) {
+                console.error("Fetch CSV failed:", err);
+                if (state.tasks.length === 0) state.tasks = [...DEFAULT_TASKS];
+                showAlert('題庫載入失敗', '無法從設定的網址載入 CSV，將使用預設或暫存題庫。');
+            }
+        }
+
+        // --- 4. Rendering ---
+        function renderGrid() {
+            const board = document.getElementById('game-board');
+            const center = board.querySelector('.center-area');
+            board.innerHTML = '';
+            board.appendChild(center);
+
+            state.gridData.forEach((cell, index) => {
+                const div = document.createElement('div');
+                div.className = `cell-pos-${index} ${cell.color} border-2 rounded-lg p-1 relative flex flex-col items-center justify-between shadow-sm transition-colors duration-300`;
+                div.id = `cell-${index}`;
+
+                div.innerHTML = `
+                    <div class="mt-2 text-gray-500 text-3xl sm:text-4xl"><i class="fas ${cell.icon}"></i></div>
+                    <div class="text-center font-black text-lg sm:text-xl leading-tight">${cell.name}</div>
+                    <div class="mb-2 text-gray-500 font-bold text-sm sm:text-base house-price-tag">${cell.price > 0 ? '$'+cell.price : ''}</div>
+                    <div class="house-container absolute top-0 right-0 p-1 flex space-x-1 text-sm"></div>
+                `;
+
+                if(index === 0) {
+                     div.innerHTML += `<div class="absolute bottom-1 right-1 text-xs sm:text-sm font-bold text-red-400 transform rotate-45">+1000</div>`
+                }
+
+                board.appendChild(div);
+            });
+            renderPlayer();
+        }
+
+        function renderPlayer() {
+            document.querySelectorAll('.player-token').forEach(el => el.remove());
+
+            const cellCounts = {};
+            state.players.forEach(p => {
+                if(p.isBankrupt) return;
+                cellCounts[p.position] = (cellCounts[p.position] || 0) + 1;
+            });
+            
+            const cellCurrentIndex = {};
+
+            state.players.forEach(p => {
+                if(p.isBankrupt) return;
+                
+                const targetCell = document.getElementById(`cell-${p.position}`);
+                if (!targetCell) return;
+                
+                const totalOnCell = cellCounts[p.position];
+                const currentIndex = cellCurrentIndex[p.position] || 0;
+                cellCurrentIndex[p.position] = currentIndex + 1;
+                
+                const token = document.createElement('div');
+                token.className = `player-token w-8 h-8 sm:w-10 sm:h-10 ${p.colorObj.bg} rounded-full border-2 border-white shadow-lg absolute flex items-center justify-center text-white z-20 text-sm font-bold`;
+                token.innerHTML = p.name.substring(0,1);
+                
+                let offsetX = '-50%';
+                let offsetY = '-50%';
+                
+                if (totalOnCell > 1) {
+                    const angle = (currentIndex / totalOnCell) * Math.PI * 2;
+                    const radius = 15;
+                    offsetX = `calc(-50% + ${Math.cos(angle) * radius}px)`;
+                    offsetY = `calc(-50% + ${Math.sin(angle) * radius}px)`;
+                }
+                
+                token.style.top = '50%';
+                token.style.left = '50%';
+                token.style.transform = `translate(${offsetX}, ${offsetY})`;
+                
+                targetCell.appendChild(token);
+            });
+        }
+
+        function updateUI() {
+            const playersList = document.getElementById('players-list');
+            playersList.innerHTML = '';
+            
+            state.players.forEach((p, idx) => {
+                let houseCount = 0;
+                state.houses.forEach(h => {
+                    if (h.ownerId === p.id) houseCount += h.count;
+                });
+                
+                const isCurrent = idx === state.currentPlayerIndex;
+                const borderClass = isCurrent ? `border-4 ${p.colorObj.border} bg-indigo-50` : 'border-2 border-gray-100 bg-white';
+                const opacityClass = p.isBankrupt ? 'opacity-50 grayscale' : '';
+                
+                playersList.innerHTML += `
+                    <div class="p-3 rounded-lg ${borderClass} ${opacityClass} transition-all">
+                        <div class="flex items-center gap-2 mb-1">
+                            <div class="w-4 h-4 rounded-full ${p.colorObj.bg}"></div>
+                            <span class="font-bold ${p.colorObj.text} truncate text-lg">${p.name} ${isCurrent ? '<i class="fas fa-hand-point-left ml-1 animate-pulse text-indigo-500"></i>' : ''} ${p.isBankrupt ? '(破產)' : ''}</span>
+                        </div>
+                        <div class="flex justify-between text-sm text-gray-600 font-bold">
+                            <span><i class="fas fa-coins text-yellow-500 w-4"></i> $${p.money}</span>
+                            <span><i class="fas fa-home text-blue-400 w-4"></i> ${houseCount}</span>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            if (state.players.length > 0) {
+                const cp = state.players[state.currentPlayerIndex];
+                const nameEl = document.getElementById('current-player-name');
+                nameEl.innerText = cp.name;
+                nameEl.className = `text-3xl font-bold truncate ${cp.colorObj.text}`;
+                
+                document.getElementById('roll-btn').className = `hover:opacity-80 text-white font-bold py-6 px-10 rounded-full shadow-lg transform active:scale-95 transition text-2xl animate-bounce ${cp.colorObj.bg}`;
+            }
+
+            state.houses.forEach((houseObj, index) => {
+                const cell = document.getElementById(`cell-${index}`);
+                const container = cell.querySelector('.house-container');
+                container.innerHTML = '';
+                
+                if (houseObj.count > 0 && houseObj.ownerId !== null) {
+                    const owner = state.players.find(p => p.id === houseObj.ownerId);
+                    if(owner) {
+                        for(let i=0; i<houseObj.count; i++) {
+                            container.innerHTML += `<i class="fas fa-home ${owner.colorObj.text}"></i>`;
+                        }
+                    }
+                }
+                
+                const priceTag = cell.querySelector('.house-price-tag');
+                if(priceTag) {
+                    const cellData = state.gridData[index];
+                    if (houseObj.count < 4) {
+                        const nextPrice = Math.floor(cellData.basePrice * (1 + houseObj.count * 0.5));
+                        priceTag.innerText = cellData.price > 0 ? '$' + nextPrice : '';
+                    } else {
+                        priceTag.innerText = 'MAX';
+                    }
+                }
+            });
+        }
+
+        // --- 5. Game Logic ---
+        function rollDice() {
+            if (state.isMoving || state.players.length === 0) return;
+            state.isMoving = true;
+            SoundFX.play('click'); 
+            
+            const rollBtn = document.getElementById('roll-btn');
+            const diceDisplay = document.getElementById('dice-display');
+            const cp = state.players[state.currentPlayerIndex];
+            
+            rollBtn.classList.add('hidden');
+            diceDisplay.classList.remove('hidden');
+            diceDisplay.className = `text-8xl mt-2 ${cp.colorObj.text}`;
+            
+            let rolls = 0;
+            const interval = setInterval(() => {
+                SoundFX.play('dice'); 
+                const tempRoll = Math.ceil(Math.random() * 6);
+                diceDisplay.innerHTML = getDiceIcon(tempRoll);
+                rolls++;
+                if (rolls > 10) {
+                    clearInterval(interval);
+                    const finalRoll = Math.ceil(Math.random() * 6);
+                    diceDisplay.innerHTML = getDiceIcon(finalRoll);
+                    
+                    setTimeout(() => {
+                        cp.diceCount++;
+                        movePlayer(cp, finalRoll);
+                    }, 500);
+                }
+            }, 100);
+        }
+
+        function getDiceIcon(num) {
+            const icons = ['one', 'two', 'three', 'four', 'five', 'six'];
+            return `<i class="fas fa-dice-${icons[num-1]}"></i>`;
+        }
+
+        function movePlayer(player, steps) {
+            let currentStep = 0;
+            const count = Math.abs(steps);
+            const direction = steps >= 0 ? 1 : -1;
+
+            const stepInterval = setInterval(() => {
+                SoundFX.play('step');
+                player.position = (player.position + direction + GRID_COUNT) % GRID_COUNT;
+                
+                if (direction > 0 && player.position === 0) {
+                    player.money += 1000;
+                    SoundFX.play('success');
+                    showAlert('經過起點', `${player.name} 獲得獎勵金 $1000！`);
+                    updateUI();
+                }
+                
+                renderPlayer();
+                currentStep++;
+
+                if (currentStep >= count) {
+                    clearInterval(stepInterval);
+                    state.isMoving = false;
+                    setTimeout(() => handleCellEvent(player), 300);
+                }
+            }, 400); 
+        }
+
+        function handleCellEvent(player) {
+            const cell = state.gridData[player.position];
+            
+            if (cell.type === 'start') {
+                nextTurn();
+            } else if (cell.type === 'practice') {
+                const houseInfo = state.houses[player.position];
+                
+                if (houseInfo.ownerId !== null && houseInfo.ownerId !== player.id) {
+                    // Pay rent
+                    const rent = Math.floor(cell.basePrice * houseInfo.count * 0.5);
+                    player.money -= rent;
+                    const owner = state.players.find(p => p.id === houseInfo.ownerId);
+                    if (owner) {
+                        owner.money += rent;
+                        showAlert('付過路費', `踩到了 ${owner.name} 的地盤，支付過路費 $${rent}！`);
+                        SoundFX.play('fail');
+                    }
+                    updateUI();
+                    checkBankrupt(player);
+                    if (!player.isBankrupt) {
+                        nextTurn();
+                    }
+                } else if (houseInfo.ownerId === player.id) {
+                    // Own land: Get bonus
+                    const bonus = Math.floor(cell.basePrice * 0.5);
+                    player.money += bonus;
+                    updateUI();
+                    
+                    if (houseInfo.count < 4) {
+                        showAlert('探視獎金', `回到了自己的領地，獲得獎金 $${bonus}！\n(關閉此視窗後將進行任務考驗)`);
+                        SoundFX.play('success');
+                        setTimeout(() => showTaskModal(cell), 1500); // 延遲讓玩家看提示
+                    } else {
+                        showAlert('探視獎金', `回到了自己的頂級領地，獲得獎金 $${bonus}！`);
+                        SoundFX.play('success');
+                        nextTurn();
+                    }
+                } else {
+                    // Unowned
+                    showTaskModal(cell);
+                }
+            } else if (cell.type === 'chance' || cell.type === 'destiny') {
+                triggerChanceDestiny(cell.name);
+            }
+        }
+
+        // --- 6. Task & House Logic ---
+        let pendingTaskCell = null;
+
+        function showTaskModal(cell) {
+            const validTasks = state.tasks.filter(t => t.trim() !== "");
+            if (validTasks.length === 0) {
+                showAlert('系統提示', '目前沒有設定任何社會技巧題目，請老師先去設定！');
+                nextTurn();
+                return;
+            }
+
+            const randomTask = validTasks[Math.floor(Math.random() * validTasks.length)];
+            const player = state.players[state.currentPlayerIndex];
+            const houseInfo = state.houses[player.position];
+            let currentPrice = cell.basePrice;
+            if (houseInfo.count > 0) {
+                currentPrice = Math.floor(cell.basePrice * (1 + houseInfo.count * 0.5));
+            }
+            
+            document.getElementById('task-content').innerText = randomTask;
+            document.getElementById('house-price').innerText = currentPrice;
+            document.getElementById('task-modal').classList.remove('hidden');
+            
+            pendingTaskCell = cell;
+        }
+
+        function taskAction(action) {
+            const modal = document.getElementById('task-modal');
+            modal.classList.add('hidden');
+            
+            const player = state.players[state.currentPlayerIndex];
+            const houseInfo = state.houses[player.position];
+
+            if (action === 'pass') {
+                if (houseInfo.count >= 4) {
+                    showAlert('提示', '這格已經蓋滿房子了，恭喜通過！');
+                    nextTurn();
+                    return;
+                }
+
+                let currentPrice = Math.floor(pendingTaskCell.basePrice * (1 + houseInfo.count * 0.5));
+
+                if (player.money >= currentPrice) {
+                    player.money -= currentPrice;
+                    houseInfo.count++;
+                    houseInfo.ownerId = player.id;
+                    
+                    updateUI();
+                } else {
+                    SoundFX.play('fail');
+                    showAlert('餘額不足', '你通過了考驗，但錢不夠購買或升級房子。');
+                }
+            } else if (action === 'no-buy') {
+                // Pass but no house
+            } else {
+                // Fail
+            }
+            
+            nextTurn();
+        }
+
+        // --- 7. Chance & Destiny Logic ---
+        function triggerChanceDestiny(typeStr) {
+            const effects = [
+                { type: 'move', val: 1, text: '向前移動 1 格' },
+                { type: 'move', val: 2, text: '向前移動 2 格' },
+                { type: 'move', val: 3, text: '向前移動 3 格' },
+                { type: 'move', val: -1, text: '後退 1 格' },
+                { type: 'move', val: -2, text: '後退 2 格' },
+                { type: 'money', val: 200, text: '獲得獎金 $200' },
+                { type: 'money', val: 500, text: '獲得獎金 $500' },
+                { type: 'money', val: -200, text: '錢包破洞，遺失 $200' },
+                { type: 'money', val: -500, text: '請客喝飲料，花費 $500' },
+            ];
+            
+            const effect = effects[Math.floor(Math.random() * effects.length)];
+            
+            document.getElementById('event-title').innerText = typeStr;
+            document.getElementById('event-desc').innerText = effect.text;
+            document.getElementById('event-icon').className = typeStr === '機會' ? 'fas fa-question' : 'fas fa-star';
+            document.getElementById('event-modal').classList.remove('hidden');
+
+            window.currentEffect = effect;
+        }
+
+        function closeEventModal() {
+            document.getElementById('event-modal').classList.add('hidden');
+            const effect = window.currentEffect;
+            const player = state.players[state.currentPlayerIndex];
+            
+            if (effect) {
+                if (effect.type === 'money') {
+                    player.money += effect.val;
+                    if(effect.val > 0) SoundFX.play('success');
+                    else SoundFX.play('fail');
+                    
+                    updateUI();
+                    checkBankrupt(player);
+                    if (!player.isBankrupt) {
+                        nextTurn();
+                    }
+                } else if (effect.type === 'move') {
+                    setTimeout(() => movePlayer(player, effect.val), 500);
+                }
+            }
+        }
+
+        // --- 8. Admin Panel Logic ---
+        function toggleAdminPanel() {
+            const panel = document.getElementById('admin-panel');
+            if (panel.classList.contains('translate-x-full')) {
+                panel.classList.remove('translate-x-full');
+            } else {
+                panel.classList.add('translate-x-full');
+            }
+        }
+
+        function renderAdminInputs() {
+            const input = document.getElementById('csv-url-input');
+            if(input) {
+                input.value = state.csvUrl || '';
+            }
+        }
+
+        async function saveTasks(e) {
+            e.preventDefault();
+            const url = document.getElementById('csv-url-input').value.trim();
+            
+            if (url) {
+                state.csvUrl = url;
+                localStorage.setItem('socialGameCsvUrl', url);
+                await fetchTasks(url);
+                SoundFX.play('success');
+                showAlert('設定已儲存', `成功從 Google Sheets 載入 ${state.tasks.length} 個題目。`);
+            } else {
+                showAlert('錯誤', '請輸入有效的網址');
+            }
+            toggleAdminPanel();
+        }
+
+        function resetDefaultTasks() {
+            if(confirm('確定要清除網址並恢復成預設的 10 個題目嗎？')) {
+                state.csvUrl = '';
+                localStorage.removeItem('socialGameCsvUrl');
+                state.tasks = [...DEFAULT_TASKS];
+                renderAdminInputs();
+                showAlert('已清除', '已恢復預設題庫。');
+            }
+        }
+
+        // --- 9. Utility & Win/Loss ---
+        function nextTurn() {
+            const activePlayers = state.players.filter(p => !p.isBankrupt);
+            if (activePlayers.length <= 1) return; // Game over
+
+            let nextIdx = (state.currentPlayerIndex + 1) % state.players.length;
+            let loopCount = 0;
+            while(state.players[nextIdx].isBankrupt && loopCount < state.players.length) {
+                nextIdx = (nextIdx + 1) % state.players.length;
+                loopCount++;
+            }
+            
+            state.currentPlayerIndex = nextIdx;
+            
+            document.getElementById('roll-btn').classList.remove('hidden');
+            document.getElementById('dice-display').classList.add('hidden');
+            state.isMoving = false;
+            
+            updateUI();
+        }
+
+        function showAlert(title, msg) {
+            document.getElementById('alert-title').innerText = title;
+            document.getElementById('alert-msg').innerText = msg;
+            document.getElementById('alert-modal').classList.remove('hidden');
+        }
+
+        function checkBankrupt(player) {
+            if (player.money < 0 && !player.isBankrupt) {
+                player.isBankrupt = true;
+                SoundFX.play('fail');
+                showAlert('破產淘汰', `${player.name} 的資金已耗盡，宣告破產！名下所有領地已遭法拍充公。`);
+                
+                state.houses.forEach(h => {
+                    if(h.ownerId === player.id) {
+                        h.ownerId = null;
+                        h.count = 0;
+                    }
+                });
+                
+                updateUI();
+                renderPlayer();
+            }
+            
+            const activePlayers = state.players.filter(p => !p.isBankrupt);
+            if (activePlayers.length === 1 && state.players.length > 1) {
+                handleWin(activePlayers[0]);
+            }
+        }
+
+        function handleWin(winner) {
+            SoundFX.play('success');
+            
+            const score = Math.max(0, Math.floor(winner.money / 10) + Math.max(0, 100 - winner.diceCount) * 50);
+            state.finalScore = score;
+            state.winnerData = { money: winner.money, diceCount: winner.diceCount };
+            
+            document.getElementById('game-over-title').innerText = "遊戲結束！";
+            document.getElementById('game-over-desc').innerText = `恭喜 ${winner.name} 成為最後的贏家！`;
+            document.getElementById('score-display').innerText = `結算積分：${score} 分`;
+            document.getElementById('game-over-icon').innerHTML = '<i class="fas fa-trophy"></i>';
+            document.getElementById('player-name').value = winner.name;
+            document.getElementById('score-submit-area').classList.remove('hidden');
+            document.getElementById('game-over-modal').classList.remove('hidden');
+        }
+
+        // --- 10. API Integration ---
+        async function submitScore() {
+            const name = document.getElementById('player-name').value.trim();
+            const statusEl = document.getElementById('submit-status');
+            if(!name) {
+                showAlert('提示', '請輸入暱稱');
+                return;
+            }
+            
+            statusEl.innerText = "上傳中...";
+            statusEl.classList.remove('hidden');
+            
+            try {
+                // If API_URL is placeholder, simulate success for now
+                if(API_URL.includes('YOUR_SUBDOMAIN')) {
+                    setTimeout(() => {
+                        statusEl.innerText = "成功！(目前為模擬模式，未連結真實後端)";
+                        statusEl.classList.add('text-green-500');
+                    }, 500);
+                    return;
+                }
+                
+                const res = await fetch(`${API_URL}/submit-score`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        player_name: name,
+                        remaining_money: state.winnerData ? state.winnerData.money : 0,
+                        dice_count: state.winnerData ? state.winnerData.diceCount : 0,
+                        score: state.finalScore
+                    })
+                });
+                
+                if(res.ok) {
+                    statusEl.innerText = "成績上傳成功！";
+                    statusEl.classList.add('text-green-500');
+                } else {
+                    throw new Error("上傳失敗");
+                }
+            } catch(e) {
+                statusEl.innerText = "上傳失敗：" + e.message;
+                statusEl.classList.add('text-red-500');
+            }
+        }
+
+        async function showLeaderboard() {
+            const modal = document.getElementById('leaderboard-modal');
+            const list = document.getElementById('leaderboard-list');
+            modal.classList.remove('hidden');
+            list.innerHTML = '<p class="text-center text-gray-500 my-4">載入中...</p>';
+            
+            try {
+                if(API_URL.includes('YOUR_SUBDOMAIN')) {
+                    list.innerHTML = '<p class="text-center text-gray-500 my-4">請先在 src/index.js 部署 Cloudflare Worker 並更新 API_URL 才能查看真實排行。</p>';
+                    return;
+                }
+                
+                const res = await fetch(`${API_URL}/leaderboard`);
+                if(!res.ok) throw new Error("讀取失敗");
+                const { data } = await res.json();
+                
+                if(data.length === 0) {
+                    list.innerHTML = '<p class="text-center text-gray-500 my-4">目前還沒有人上榜，快來成為第一個吧！</p>';
+                    return;
+                }
+                
+                let html = '';
+                data.forEach((item, idx) => {
+                    let badge = '';
+                    if(idx === 0) badge = '🥇';
+                    else if(idx === 1) badge = '🥈';
+                    else if(idx === 2) badge = '🥉';
+                    else badge = `${idx+1}.`;
+                    
+                    html += `
+                    <div class="flex justify-between items-center bg-gray-50 p-3 rounded border border-gray-100">
+                        <div class="font-bold text-gray-800"><span class="w-6 inline-block">${badge}</span> ${item.player_name}</div>
+                        <div class="text-indigo-600 font-bold">${item.score} <span class="text-xs text-gray-400">分</span></div>
+                    </div>`;
+                });
+                list.innerHTML = html;
+            } catch(e) {
+                list.innerHTML = '<p class="text-center text-red-500 my-4">讀取排行榜失敗</p>';
+            }
+        }
+
+        // --- Start ---
+        // initGame(); // Now called by startGame()
+        renderPlayerInputs();
+
+    </script>
+</body>
+</html>
