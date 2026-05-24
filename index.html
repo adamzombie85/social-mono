@@ -388,7 +388,7 @@
         let state = {
             players: [],
             currentPlayerIndex: 0,
-            houses: Array(GRID_COUNT).fill(null).map(() => ({ count: 0, ownerId: null })), // Max 4 houses
+            houses: Array(GRID_COUNT).fill(null).map(() => ({})), // Record player_id: house_count
             gridData: [], // { type, price, basePrice, name }
             isMoving: false,
             tasks: [],
@@ -587,8 +587,8 @@
             
             state.players.forEach((p, idx) => {
                 let houseCount = 0;
-                state.houses.forEach(h => {
-                    if (h.ownerId === p.id) houseCount += h.count;
+                state.houses.forEach(owners => {
+                    if (owners[p.id]) houseCount += owners[p.id];
                 });
                 
                 const isCurrent = idx === state.currentPlayerIndex;
@@ -618,16 +618,17 @@
                 document.getElementById('roll-btn').className = `hover:opacity-80 text-white font-bold py-6 px-10 rounded-full shadow-lg transform active:scale-95 transition text-2xl animate-bounce ${cp.colorObj.bg}`;
             }
 
-            state.houses.forEach((houseObj, index) => {
+            state.houses.forEach((owners, index) => {
                 const cell = document.getElementById(`cell-${index}`);
+                if (!cell) return;
                 const container = cell.querySelector('.house-container');
                 container.innerHTML = '';
                 
-                if (houseObj.count > 0 && houseObj.ownerId !== null) {
-                    const owner = state.players.find(p => p.id === houseObj.ownerId);
-                    if(owner) {
-                        for(let i=0; i<houseObj.count; i++) {
-                            container.innerHTML += `<i class="fas fa-home ${owner.colorObj.text}"></i>`;
+                for (const [pId, count] of Object.entries(owners)) {
+                    if (count > 0) {
+                        const p = state.players.find(x => x.id === Number(pId));
+                        if (p) {
+                            container.innerHTML += `<div class="flex items-center gap-0.5"><i class="fas fa-home ${p.colorObj.text}"></i><span class="font-bold text-xs">x${count}</span></div>`;
                         }
                     }
                 }
@@ -635,11 +636,8 @@
                 const priceTag = cell.querySelector('.house-price-tag');
                 if(priceTag) {
                     const cellData = state.gridData[index];
-                    if (houseObj.count < 4) {
-                        const nextPrice = Math.floor(cellData.basePrice * (1 + houseObj.count * 0.5));
-                        priceTag.innerText = cellData.price > 0 ? '$' + nextPrice : '';
-                    } else {
-                        priceTag.innerText = 'MAX';
+                    if (cellData.type === 'practice') {
+                        priceTag.innerText = `$${cellData.basePrice}`;
                     }
                 }
             });
@@ -716,41 +714,65 @@
             if (cell.type === 'start') {
                 nextTurn();
             } else if (cell.type === 'practice') {
-                const houseInfo = state.houses[player.position];
+                const owners = state.houses[player.position];
+                const myHouses = owners[player.id] || 0;
                 
-                if (houseInfo.ownerId !== null && houseInfo.ownerId !== player.id) {
-                    // Pay rent
-                    const rent = Math.floor(cell.basePrice * houseInfo.count * 0.5);
+                let maxCount = 0;
+                let maxPlayers = [];
+                for (const [pId, count] of Object.entries(owners)) {
+                    if (count > maxCount) {
+                        maxCount = count;
+                        maxPlayers = [Number(pId)];
+                    } else if (count === maxCount) {
+                        maxPlayers.push(Number(pId));
+                    }
+                }
+                
+                let actualOwnerId = null;
+                if (maxCount > 0 && maxPlayers.length === 1) {
+                    actualOwnerId = maxPlayers[0];
+                }
+
+                if (actualOwnerId !== null && actualOwnerId !== player.id) {
+                    const rent = cell.basePrice * maxCount * 0.5;
                     player.money -= rent;
-                    const owner = state.players.find(p => p.id === houseInfo.ownerId);
-                    if (owner) {
-                        owner.money += rent;
-                        showAlert('付過路費', `踩到了 ${owner.name} 的地盤，支付過路費 $${rent}！`);
-                        SoundFX.play('fail');
-                    }
-                    updateUI();
-                    checkBankrupt(player);
-                    if (!player.isBankrupt) {
-                        nextTurn();
-                    }
-                } else if (houseInfo.ownerId === player.id) {
-                    // Own land: Get bonus
-                    const bonus = Math.floor(cell.basePrice * 0.5);
-                    player.money += bonus;
+                    const owner = state.players.find(p => p.id === actualOwnerId);
+                    if(owner) owner.money += rent;
+                    
+                    SoundFX.play('fail');
+                    showAlert('支付過路費', `這裡目前由 ${owner ? owner.name : '其他玩家'} 控制 (${maxCount}棟)，您支付了 $${rent}。`);
                     updateUI();
                     
-                    if (houseInfo.count < 4) {
-                        showAlert('探視獎金', `回到了自己的領地，獲得獎金 $${bonus}！\n(關閉此視窗後將進行任務考驗)`);
-                        SoundFX.play('success');
-                        setTimeout(() => showTaskModal(cell), 1500); // 延遲讓玩家看提示
+                    if (checkBankrupt(player)) return;
+                    
+                    if (myHouses < 4) {
+                        setTimeout(() => showTaskModal(cell), 2500);
                     } else {
-                        showAlert('探視獎金', `回到了自己的頂級領地，獲得獎金 $${bonus}！`);
-                        SoundFX.play('success');
-                        nextTurn();
+                        setTimeout(() => nextTurn(), 2500);
+                    }
+                } else if (actualOwnerId === player.id) {
+                    const bonus = cell.basePrice * 0.5;
+                    player.money += bonus;
+                    updateUI();
+                    SoundFX.play('success');
+                    showAlert('巡視領地', `您目前是這裡的最大掌控者，獲得探視獎金 $${bonus}！`);
+                    
+                    if (myHouses < 4) {
+                        setTimeout(() => showTaskModal(cell), 2500);
+                    } else {
+                        setTimeout(() => nextTurn(), 2500);
                     }
                 } else {
-                    // Unowned
-                    showTaskModal(cell);
+                    if (maxCount > 0) {
+                        showAlert('產權平手', `這塊地目前處於產權平手狀態，不需要支付過路費！`);
+                        if (myHouses < 4) {
+                            setTimeout(() => showTaskModal(cell), 2500);
+                        } else {
+                            setTimeout(() => nextTurn(), 2500);
+                        }
+                    } else {
+                        showTaskModal(cell);
+                    }
                 }
             } else if (cell.type === 'chance' || cell.type === 'destiny') {
                 triggerChanceDestiny(cell.name);
@@ -770,10 +792,11 @@
 
             const randomTask = validTasks[Math.floor(Math.random() * validTasks.length)];
             const player = state.players[state.currentPlayerIndex];
-            const houseInfo = state.houses[player.position];
+            const myHouses = state.houses[player.position][player.id] || 0;
+            
             let currentPrice = cell.basePrice;
-            if (houseInfo.count > 0) {
-                currentPrice = Math.floor(cell.basePrice * (1 + houseInfo.count * 0.5));
+            if (myHouses > 0) {
+                currentPrice = Math.floor(cell.basePrice * (1 + myHouses * 0.5));
             }
             
             document.getElementById('task-content').innerText = randomTask;
@@ -788,21 +811,21 @@
             modal.classList.add('hidden');
             
             const player = state.players[state.currentPlayerIndex];
-            const houseInfo = state.houses[player.position];
+            const owners = state.houses[player.position];
+            const myHouses = owners[player.id] || 0;
 
             if (action === 'pass') {
-                if (houseInfo.count >= 4) {
+                if (myHouses >= 4) {
                     showAlert('提示', '這格已經蓋滿房子了，恭喜通過！');
                     nextTurn();
                     return;
                 }
 
-                let currentPrice = Math.floor(pendingTaskCell.basePrice * (1 + houseInfo.count * 0.5));
+                let currentPrice = Math.floor(pendingTaskCell.basePrice * (1 + myHouses * 0.5));
 
                 if (player.money >= currentPrice) {
                     player.money -= currentPrice;
-                    houseInfo.count++;
-                    houseInfo.ownerId = player.id;
+                    owners[player.id] = (owners[player.id] || 0) + 1;
                     
                     updateUI();
                 } else {
@@ -940,15 +963,15 @@
                 SoundFX.play('fail');
                 showAlert('破產淘汰', `${player.name} 的資金已耗盡，宣告破產！名下所有領地已遭法拍充公。`);
                 
-                state.houses.forEach(h => {
-                    if(h.ownerId === player.id) {
-                        h.ownerId = null;
-                        h.count = 0;
+                state.houses.forEach(owners => {
+                    if (owners[player.id]) {
+                        delete owners[player.id];
                     }
                 });
                 
                 updateUI();
                 renderPlayer();
+                return true;
             }
             
             const activePlayers = state.players.filter(p => !p.isBankrupt);
