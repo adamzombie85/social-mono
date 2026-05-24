@@ -402,7 +402,10 @@
             { bg: 'bg-yellow-500', text: 'text-yellow-500', border: 'border-yellow-500' }
         ];
 
-        const API_URL = "https://social-game-api.YOUR_SUBDOMAIN.workers.dev"; 
+        // ==========================================
+        // 遊戲核心邏輯 (State & Constants)
+        // ==========================================
+        const API_URL = 'https://script.google.com/macros/s/AKfycbyGkURJ8ibRGt1-sPaicGqM7XTpK6P5__fgnwy3R2LY_Ur2H6beYn4mXt2ZsvhU9rRH/exec';
 
         // --- 3. Setup & Initialization ---
         
@@ -1003,7 +1006,6 @@
             statusEl.classList.remove('hidden');
             
             try {
-                // If API_URL is placeholder, simulate success for now
                 if(API_URL.includes('YOUR_SUBDOMAIN')) {
                     setTimeout(() => {
                         statusEl.innerText = "成功！(目前為模擬模式，未連結真實後端)";
@@ -1012,10 +1014,10 @@
                     return;
                 }
                 
-                const res = await fetch(`${API_URL}/submit-score`, {
+                const res = await fetch(API_URL, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
+                        action: 'submit-score',
                         player_name: name,
                         remaining_money: state.winnerData ? state.winnerData.money : 0,
                         dice_count: state.winnerData ? state.winnerData.diceCount : 0,
@@ -1047,7 +1049,7 @@
                     return;
                 }
                 
-                const res = await fetch(`${API_URL}/leaderboard`);
+                const res = await fetch(`${API_URL}?action=leaderboard`);
                 if(!res.ok) throw new Error("讀取失敗");
                 const { data } = await res.json();
                 
